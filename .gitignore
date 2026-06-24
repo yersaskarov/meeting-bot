@@ -1,0 +1,28 @@
+# Secrets
+.env
+
+# Claude Code local settings
+.claude/
+
+# Audio files — not for version control
+audio/
+audio_files/
+*.mp3
+*.ogg
+*.wav
+*.m4a
+*.mp4
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# Whisper cache
+.whisper/
