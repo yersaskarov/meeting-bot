@@ -5,7 +5,7 @@ Thank you for considering a contribution. Here is everything you need to get sta
 ## Development setup
 
 ```bash
-git clone https://github.com/your-username/meeting-bot.git
+git clone https://github.com/yersaskarov/meeting-bot.git
 cd meeting-bot
 
 python -m venv .venv

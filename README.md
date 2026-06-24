@@ -1,6 +1,6 @@
 # Meeting Notes Bot
 
-[![CI](https://github.com/your-username/meeting-bot/actions/workflows/ci.yml/badge.svg)](https://github.com/your-username/meeting-bot/actions/workflows/ci.yml)
+[![CI](https://github.com/yersaskarov/meeting-bot/actions/workflows/ci.yml/badge.svg)](https://github.com/yersaskarov/meeting-bot/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Code style: ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
@@ -60,7 +60,7 @@ Whisper runs in a `ThreadPoolExecutor` so CPU-bound transcription never blocks t
 ## Quick start (Docker — recommended)
 
 ```bash
-git clone https://github.com/your-username/meeting-bot.git
+git clone https://github.com/yersaskarov/meeting-bot.git
 cd meeting-bot
 
 cp .env.example .env
@@ -79,7 +79,7 @@ The image pre-downloads the Whisper model during build so the container starts i
 
 ```bash
 # 1. Clone
-git clone https://github.com/your-username/meeting-bot.git
+git clone https://github.com/yersaskarov/meeting-bot.git
 cd meeting-bot
 
 # 2. Virtual environment
