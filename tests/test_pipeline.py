@@ -1,16 +1,15 @@
 """Integration tests for the full audio → transcript → analysis pipeline."""
-import asyncio
+
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import anthropic
-import pytest
 
 import handlers
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_message(user_id: int = 99) -> AsyncMock:
     msg = AsyncMock()
@@ -31,6 +30,7 @@ def _answered_texts(msg: AsyncMock) -> list[str]:
 # Full pipeline success
 # ---------------------------------------------------------------------------
 
+
 async def test_full_pipeline_audio_to_analysis():
     """
     Full flow: file received → downloaded → transcribed → analysed → 4 replies sent.
@@ -39,11 +39,16 @@ async def test_full_pipeline_audio_to_analysis():
     msg = _make_message()
     bot = _make_bot()
 
-    with patch("handlers._download", new_callable=AsyncMock), \
-         patch("handlers.transcribe", new_callable=AsyncMock, return_value="Обсудили дедлайны.") as mock_tr, \
-         patch("handlers.analyze", new_callable=AsyncMock, return_value="📋 Саммари: дедлайны") as mock_an, \
-         patch("handlers.ANTHROPIC_API_KEY", "sk-ant-test"):
-
+    with (
+        patch("handlers._download", new_callable=AsyncMock),
+        patch(
+            "handlers.transcribe", new_callable=AsyncMock, return_value="Обсудили дедлайны."
+        ) as mock_tr,
+        patch(
+            "handlers.analyze", new_callable=AsyncMock, return_value="📋 Саммари: дедлайны"
+        ) as mock_an,
+        patch("handlers.ANTHROPIC_API_KEY", "sk-ant-test"),
+    ):
         await handlers._process(msg, bot, "fid", "voice_99_uid.ogg", duration=120)
 
     mock_tr.assert_called_once()
@@ -60,14 +65,16 @@ async def test_full_pipeline_audio_to_analysis():
 # Whisper fails
 # ---------------------------------------------------------------------------
 
+
 async def test_pipeline_whisper_failure_sends_error_and_does_not_crash():
     """If Whisper throws, bot sends an error message and does not crash."""
     msg = _make_message()
     bot = _make_bot()
 
-    with patch("handlers._download", new_callable=AsyncMock), \
-         patch("handlers.transcribe", side_effect=RuntimeError("CUDA out of memory")):
-
+    with (
+        patch("handlers._download", new_callable=AsyncMock),
+        patch("handlers.transcribe", side_effect=RuntimeError("CUDA out of memory")),
+    ):
         await handlers._process(msg, bot, "fid", "voice_99_uid.ogg", duration=60)
 
     texts = _answered_texts(msg)
@@ -79,14 +86,16 @@ async def test_pipeline_whisper_failure_sends_error_and_does_not_crash():
 # Transcription timeout
 # ---------------------------------------------------------------------------
 
+
 async def test_pipeline_transcription_timeout_notifies_user():
     """If transcription exceeds 5 min, user gets a timeout message."""
     msg = _make_message()
     bot = _make_bot()
 
-    with patch("handlers._download", new_callable=AsyncMock), \
-         patch("handlers.asyncio.wait_for", side_effect=asyncio.TimeoutError()):
-
+    with (
+        patch("handlers._download", new_callable=AsyncMock),
+        patch("handlers.asyncio.wait_for", side_effect=TimeoutError()),
+    ):
         await handlers._process(msg, bot, "fid", "voice_99_uid.ogg", duration=60)
 
     texts = _answered_texts(msg)
@@ -97,19 +106,24 @@ async def test_pipeline_transcription_timeout_notifies_user():
 # Claude fails
 # ---------------------------------------------------------------------------
 
+
 async def test_pipeline_claude_rate_limit_sends_friendly_message():
     """If Claude returns RateLimitError, user sees a friendly retry message."""
     msg = _make_message()
     bot = _make_bot()
 
-    with patch("handlers._download", new_callable=AsyncMock), \
-         patch("handlers.transcribe", new_callable=AsyncMock, return_value="Текст митинга"), \
-         patch("handlers.analyze", new_callable=AsyncMock,
-               side_effect=anthropic.RateLimitError(
-                   message="rate limit", response=MagicMock(), body={}
-               )), \
-         patch("handlers.ANTHROPIC_API_KEY", "sk-ant-test"):
-
+    with (
+        patch("handlers._download", new_callable=AsyncMock),
+        patch("handlers.transcribe", new_callable=AsyncMock, return_value="Текст митинга"),
+        patch(
+            "handlers.analyze",
+            new_callable=AsyncMock,
+            side_effect=anthropic.RateLimitError(
+                message="rate limit", response=MagicMock(), body={}
+            ),
+        ),
+        patch("handlers.ANTHROPIC_API_KEY", "sk-ant-test"),
+    ):
         await handlers._process(msg, bot, "fid", "voice_99_uid.ogg", duration=60)
 
     texts = _answered_texts(msg)
@@ -131,11 +145,12 @@ async def test_pipeline_claude_api_error_sends_error_message():
             body={},
         )
 
-    with patch("handlers._download", new_callable=AsyncMock), \
-         patch("handlers.transcribe", fake_transcribe), \
-         patch("handlers.analyze", fake_analyze), \
-         patch("handlers.ANTHROPIC_API_KEY", "sk-ant-test"):
-
+    with (
+        patch("handlers._download", new_callable=AsyncMock),
+        patch("handlers.transcribe", fake_transcribe),
+        patch("handlers.analyze", fake_analyze),
+        patch("handlers.ANTHROPIC_API_KEY", "sk-ant-test"),
+    ):
         await handlers._process(msg, bot, "fid", "voice_99_uid.ogg", duration=60)
 
     texts = _answered_texts(msg)

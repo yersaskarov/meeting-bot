@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import logging
 import re
 from pathlib import Path
@@ -19,19 +20,19 @@ logger = logging.getLogger(__name__)
 AUDIO_DIR = Path("audio")
 AUDIO_DIR.mkdir(exist_ok=True)
 
-MAX_FILE_SIZE = 25 * 1024 * 1024   # 25 MB
-MAX_DURATION = 30 * 60             # 30 минут в секундах
-MAX_TRANSCRIPT_CHARS = 50_000      # ~12 000 токенов — безопасный лимит для Claude
-TRANSCRIPTION_TIMEOUT = 300        # 5 минут
+MAX_FILE_SIZE = 25 * 1024 * 1024
+MAX_DURATION = 30 * 60
+MAX_TRANSCRIPT_CHARS = 50_000
+TRANSCRIPTION_TIMEOUT = 300
+
+ALLOWED_EXTENSIONS = frozenset({".ogg", ".mp3", ".wav", ".m4a", ".mp4", ".flac", ".opus"})
 
 
 def _safe_filename(name: str) -> str:
-    """Убирает из имени файла всё кроме букв, цифр, точки и дефиса."""
     return re.sub(r"[^\w.-]", "_", name)
 
 
 async def _safe_answer(message: Message, text: str, **kwargs) -> None:
-    """Отправляет сообщение и молча игнорирует если пользователь заблокировал бота."""
     try:
         await message.answer(text, **kwargs)
     except TelegramForbiddenError:
@@ -52,7 +53,6 @@ async def _process(
     file_name: str,
     duration: int | None = None,
 ) -> None:
-    # --- Проверка длины аудио ---
     if duration is not None and duration > MAX_DURATION:
         await _safe_answer(
             message,
@@ -63,23 +63,21 @@ async def _process(
 
     file_path = AUDIO_DIR / _safe_filename(file_name)
 
-    # --- Скачивание (обработка ошибки диска) ---
     try:
         await _download(bot, file_id, file_path)
     except OSError as e:
         logger.error("Disk error saving %s: %s", file_name, e)
-        await _safe_answer(message, "❌ Не удалось сохранить файл. Возможно, закончилось место на диске.")
+        await _safe_answer(
+            message, "❌ Не удалось сохранить файл. Возможно, закончилось место на диске."
+        )
         return
 
     logger.info("Saved %s from user %s", file_name, message.from_user.id)
 
-    # --- Транскрипция ---
     await _safe_answer(message, "⏳ Транскрибирую аудио... это может занять до 2 минут")
     try:
-        transcript = await asyncio.wait_for(
-            transcribe(file_path), timeout=TRANSCRIPTION_TIMEOUT
-        )
-    except asyncio.TimeoutError:
+        transcript = await asyncio.wait_for(transcribe(file_path), timeout=TRANSCRIPTION_TIMEOUT)
+    except TimeoutError:
         logger.error("Transcription timeout for %s", file_name)
         await _safe_answer(
             message,
@@ -96,17 +94,13 @@ async def _process(
         )
         return
     finally:
-        # Всегда удаляем аудиофайл после транскрипции
-        try:
+        with contextlib.suppress(OSError):
             file_path.unlink(missing_ok=True)
-        except OSError:
-            pass
 
     if not transcript or len(transcript.strip()) < 3:
         await _safe_answer(message, "⚠️ В аудио не обнаружена речь или текст слишком короткий.")
         return
 
-    # --- Обрезка слишком длинного транскрипта ---
     truncated = len(transcript) > MAX_TRANSCRIPT_CHARS
     if truncated:
         transcript = transcript[:MAX_TRANSCRIPT_CHARS]
@@ -116,7 +110,6 @@ async def _process(
         transcript_msg += "\n\n_⚠️ Текст обрезан — аудио слишком длинное_"
     await _safe_answer(message, transcript_msg, parse_mode="Markdown")
 
-    # --- Анализ через Claude ---
     if not ANTHROPIC_API_KEY or ANTHROPIC_API_KEY == "your_anthropic_api_key_here":
         await _safe_answer(message, "⚠️ ANTHROPIC_API_KEY не настроен — анализ недоступен.")
         return
@@ -137,11 +130,15 @@ async def _process(
         if e.status_code == 529:
             await _safe_answer(message, "⏳ Claude API перегружен. Попробуй через несколько минут.")
         else:
-            await _safe_answer(message, f"❌ Ошибка Claude API (код {e.status_code}). Попробуй позже.")
+            await _safe_answer(
+                message, f"❌ Ошибка Claude API (код {e.status_code}). Попробуй позже."
+            )
         return
     except anthropic.APIConnectionError:
         logger.error("Anthropic connection error")
-        await _safe_answer(message, "❌ Нет соединения с Claude API. Проверь интернет и попробуй позже.")
+        await _safe_answer(
+            message, "❌ Нет соединения с Claude API. Проверь интернет и попробуй позже."
+        )
         return
     except Exception as e:
         logger.error("Unexpected Claude error: %s", e)
@@ -205,7 +202,14 @@ async def handle_audio(message: Message, bot: Bot) -> None:
         await _safe_answer(message, f"⚠️ Файл слишком большой ({size_mb} MB). Максимум — 25 MB.")
         return
     original = audio.file_name or f"audio_{audio.file_unique_id}"
-    ext = Path(original).suffix or ".mp3"
+    ext = Path(original).suffix.lower() or ".mp3"
+    if ext not in ALLOWED_EXTENSIONS:
+        await _safe_answer(
+            message,
+            f"⚠️ Формат `{ext}` не поддерживается.\n"
+            "Поддерживаемые форматы: ogg, mp3, wav, m4a, mp4, flac, opus.",
+        )
+        return
     file_name = f"audio_{message.from_user.id}_{audio.file_unique_id}{ext}"
     await _process(message, bot, audio.file_id, file_name, duration=audio.duration)
 

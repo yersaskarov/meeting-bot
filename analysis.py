@@ -2,24 +2,41 @@ import logging
 
 import anthropic
 
-from config import ANTHROPIC_API_KEY
+from config import ANTHROPIC_API_KEY, CLAUDE_MODEL
 
 logger = logging.getLogger(__name__)
 
-ANALYSIS_PROMPT = (
-    "Ты помощник для анализа митингов. Из текста ниже выдели:\n"
-    "1. 📋 Краткое саммари (3-5 предложений)\n"
-    "2. ✅ Список задач с ответственными (если упомянуты)\n"
-    "3. 📅 Дедлайны и договорённости\n"
-    "Отвечай на том же языке что и текст."
+# Instructions in system prompt so they cannot be overridden by user-supplied transcript content.
+_SYSTEM_PROMPT = (
+    "You are a meeting analysis assistant. "
+    "Extract structured information from meeting transcripts. "
+    "Always respond in the same language as the transcript."
 )
+
+_USER_PROMPT_TEMPLATE = (
+    "From the meeting transcript below, extract:\n"
+    "1. 📋 Brief summary (3–5 sentences)\n"
+    "2. ✅ Action items with owners (if mentioned)\n"
+    "3. 📅 Deadlines and agreements\n\n"
+    "Transcript:\n{transcript}"
+)
+
+# Reuse a single client across all requests — it manages its own connection pool.
+_client: anthropic.AsyncAnthropic | None = None
+
+
+def _get_client() -> anthropic.AsyncAnthropic:
+    global _client
+    if _client is None:
+        _client = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+    return _client
 
 
 async def analyze(transcript: str) -> str:
-    client = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
-    response = await client.messages.create(
-        model="claude-sonnet-4-6",
+    response = await _get_client().messages.create(
+        model=CLAUDE_MODEL,
         max_tokens=2048,
-        messages=[{"role": "user", "content": f"{ANALYSIS_PROMPT}\n\nТекст:\n{transcript}"}],
+        system=_SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": _USER_PROMPT_TEMPLATE.format(transcript=transcript)}],
     )
     return response.content[0].text

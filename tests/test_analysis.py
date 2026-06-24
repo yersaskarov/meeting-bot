@@ -1,4 +1,5 @@
 """Unit tests for analysis.py (Claude API)."""
+
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import anthropic
@@ -7,9 +8,18 @@ import pytest
 import analysis
 
 
+@pytest.fixture(autouse=True)
+def reset_client():
+    """Reset the module-level singleton before each test so patches take effect."""
+    analysis._client = None
+    yield
+    analysis._client = None
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _mock_anthropic_client(text: str = "📋 Саммари: тест"):
     """Return a patched AsyncAnthropic that yields `text`."""
@@ -26,9 +36,12 @@ def _mock_anthropic_client(text: str = "📋 Саммари: тест"):
 # Success
 # ---------------------------------------------------------------------------
 
+
 async def test_analyze_returns_claude_response():
     """analyze() returns the text from Claude's response."""
-    with patch("analysis.anthropic.AsyncAnthropic", return_value=_mock_anthropic_client("📋 Саммари")):
+    with patch(
+        "analysis.anthropic.AsyncAnthropic", return_value=_mock_anthropic_client("📋 Саммари")
+    ):
         result = await analysis.analyze("Обсудили запуск продукта.")
 
     assert "Саммари" in result
@@ -54,9 +67,31 @@ async def test_analyze_sends_correct_prompt():
     assert any(transcript in m["content"] for m in captured_messages)
 
 
+async def test_analyze_uses_system_prompt():
+    """A system prompt must be passed to separate instructions from user content."""
+    captured_kwargs: list[dict] = []
+
+    async def fake_create(**kwargs):
+        captured_kwargs.append(kwargs)
+        resp = MagicMock()
+        resp.content = [MagicMock(text="ok")]
+        return resp
+
+    mock_client = AsyncMock()
+    mock_client.messages.create = fake_create
+
+    with patch("analysis.anthropic.AsyncAnthropic", return_value=mock_client):
+        await analysis.analyze("Meeting transcript.")
+
+    assert captured_kwargs, "messages.create was never called"
+    assert "system" in captured_kwargs[0], "system prompt must be set to isolate user content"
+    assert captured_kwargs[0]["system"], "system prompt must not be empty"
+
+
 # ---------------------------------------------------------------------------
 # Error propagation — handlers.py catches these, so they must propagate cleanly
 # ---------------------------------------------------------------------------
+
 
 async def test_analyze_propagates_rate_limit_error():
     """RateLimitError from Claude must propagate so handlers can catch it."""
@@ -64,9 +99,11 @@ async def test_analyze_propagates_rate_limit_error():
     mock_client.messages.create.side_effect = anthropic.RateLimitError(
         message="rate limit", response=MagicMock(), body={}
     )
-    with patch("analysis.anthropic.AsyncAnthropic", return_value=mock_client):
-        with pytest.raises(anthropic.RateLimitError):
-            await analysis.analyze("Текст митинга.")
+    with (
+        patch("analysis.anthropic.AsyncAnthropic", return_value=mock_client),
+        pytest.raises(anthropic.RateLimitError),
+    ):
+        await analysis.analyze("Текст митинга.")
 
 
 async def test_analyze_propagates_api_status_error_500():
@@ -77,14 +114,17 @@ async def test_analyze_propagates_api_status_error_500():
         response=MagicMock(status_code=500),
         body={},
     )
-    with patch("analysis.anthropic.AsyncAnthropic", return_value=mock_client):
-        with pytest.raises(anthropic.APIStatusError):
-            await analysis.analyze("Текст митинга.")
+    with (
+        patch("analysis.anthropic.AsyncAnthropic", return_value=mock_client),
+        pytest.raises(anthropic.APIStatusError),
+    ):
+        await analysis.analyze("Текст митинга.")
 
 
 # ---------------------------------------------------------------------------
 # Edge-case inputs
 # ---------------------------------------------------------------------------
+
 
 async def test_analyze_handles_long_transcript():
     """analyze() must accept a 50 000-char transcript without error."""

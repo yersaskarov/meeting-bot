@@ -1,10 +1,10 @@
-# Secrets
+# Secrets — never commit
 .env
 
 # Claude Code local settings
 .claude/
 
-# Audio files — not for version control
+# Audio files — may contain PII
 audio/
 audio_files/
 *.mp3
@@ -12,6 +12,8 @@ audio_files/
 *.wav
 *.m4a
 *.mp4
+*.flac
+*.opus
 
 # Python
 __pycache__/
@@ -23,10 +25,22 @@ dist/
 build/
 .venv/
 venv/
+env/
 
-# Whisper cache
-.whisper/
+# Whisper model cache
+.cache/whisper/
+~/.cache/whisper/
 
 # Logs
 errors.log
 errors.log.*
+logs/
+
+# Test cache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# OS
+.DS_Store
+Thumbs.db

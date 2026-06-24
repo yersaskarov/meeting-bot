@@ -1,0 +1,11 @@
+services:
+  bot:
+    build: .
+    env_file: .env
+    volumes:
+      - ./audio:/app/audio
+      - ./logs:/app/logs
+    restart: unless-stopped
+    environment:
+      - WHISPER_MODEL=${WHISPER_MODEL:-small}
+      - CLAUDE_MODEL=${CLAUDE_MODEL:-claude-sonnet-4-6}

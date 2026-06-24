@@ -1,16 +1,15 @@
 """Unit tests for handlers.py."""
-import asyncio
+
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 from aiogram.exceptions import TelegramForbiddenError
 
 import handlers
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_message(user_id: int = 42) -> AsyncMock:
     msg = AsyncMock()
@@ -29,6 +28,7 @@ def _make_bot() -> AsyncMock:
 # ---------------------------------------------------------------------------
 # _safe_filename
 # ---------------------------------------------------------------------------
+
 
 def test_safe_filename_normal_name():
     assert handlers._safe_filename("meeting.mp3") == "meeting.mp3"
@@ -54,6 +54,7 @@ def test_safe_filename_replaces_special_chars():
 # _safe_answer — TelegramForbiddenError must not crash the bot
 # ---------------------------------------------------------------------------
 
+
 async def test_safe_answer_handles_forbidden_silently():
     """When the user has blocked the bot, _safe_answer must not raise."""
     msg = _make_message()
@@ -67,6 +68,7 @@ async def test_safe_answer_handles_forbidden_silently():
 # ---------------------------------------------------------------------------
 # /start and /help
 # ---------------------------------------------------------------------------
+
 
 async def test_cmd_start_replies():
     msg = _make_message()
@@ -87,6 +89,7 @@ async def test_cmd_help_replies_with_formats():
 # ---------------------------------------------------------------------------
 # File size limit (25 MB)
 # ---------------------------------------------------------------------------
+
 
 async def test_handle_voice_rejects_oversized_file():
     msg = _make_message()
@@ -125,6 +128,7 @@ async def test_handle_audio_rejects_oversized_file():
 # Duration limit (30 minutes)
 # ---------------------------------------------------------------------------
 
+
 async def test_process_rejects_audio_over_30_minutes():
     msg = _make_message()
     bot = _make_bot()
@@ -137,8 +141,49 @@ async def test_process_rejects_audio_over_30_minutes():
 
 
 # ---------------------------------------------------------------------------
+# Extension allowlist
+# ---------------------------------------------------------------------------
+
+
+async def test_handle_audio_rejects_disallowed_extension():
+    msg = _make_message()
+    msg.audio = MagicMock(
+        file_size=1 * 1024 * 1024,
+        file_unique_id="uid3",
+        file_id="fid3",
+        file_name="malicious.php",
+        duration=10,
+    )
+    bot = _make_bot()
+
+    await handlers.handle_audio(msg, bot)
+
+    msg.answer.assert_called_once()
+    assert "не поддерживается" in msg.answer.call_args.args[0]
+
+
+async def test_handle_audio_accepts_allowed_extension():
+    """An .ogg file within limits must proceed to _process (not be rejected early)."""
+    msg = _make_message()
+    msg.audio = MagicMock(
+        file_size=1 * 1024 * 1024,
+        file_unique_id="uid4",
+        file_id="fid4",
+        file_name="meeting.ogg",
+        duration=60,
+    )
+    bot = _make_bot()
+
+    with patch("handlers._process", new_callable=AsyncMock) as mock_process:
+        await handlers.handle_audio(msg, bot)
+
+    mock_process.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
 # Unsupported content types
 # ---------------------------------------------------------------------------
+
 
 async def test_handle_unsupported_explains_audio_only():
     msg = _make_message()

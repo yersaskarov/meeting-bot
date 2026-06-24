@@ -1,5 +1,5 @@
 """Unit tests for transcription.py (Whisper)."""
-import asyncio
+
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -20,10 +20,14 @@ def reset_model():
 # load_model
 # ---------------------------------------------------------------------------
 
-def test_load_model_loads_small():
-    """load_model must request the 'small' Whisper model."""
+
+def test_load_model_uses_configured_model():
+    """load_model must pass WHISPER_MODEL to whisper.load_model."""
     mock_model = MagicMock()
-    with patch("transcription.whisper.load_model", return_value=mock_model) as mock_load:
+    with (
+        patch("transcription.whisper.load_model", return_value=mock_model) as mock_load,
+        patch("transcription.WHISPER_MODEL", "small"),
+    ):
         result = transcription.load_model()
 
     mock_load.assert_called_once_with("small")
@@ -45,6 +49,7 @@ def test_load_model_only_once():
 # _detect_language
 # ---------------------------------------------------------------------------
 
+
 def _make_model(probs: dict) -> MagicMock:
     model = MagicMock()
     model.dims.n_mels = 80
@@ -54,9 +59,11 @@ def _make_model(probs: dict) -> MagicMock:
 
 
 def _call_detect(model, path="test.ogg"):
-    with patch("transcription.whisper.load_audio"), \
-         patch("transcription.whisper.pad_or_trim"), \
-         patch("transcription.whisper.log_mel_spectrogram") as mock_mel:
+    with (
+        patch("transcription.whisper.load_audio"),
+        patch("transcription.whisper.pad_or_trim"),
+        patch("transcription.whisper.log_mel_spectrogram") as mock_mel,
+    ):
         mock_mel.return_value.to.return_value = MagicMock()
         return transcription._detect_language(model, Path(path))
 
@@ -89,6 +96,7 @@ def test_detect_language_boundary_exactly_08():
 # transcribe (async)
 # ---------------------------------------------------------------------------
 
+
 async def test_transcribe_success():
     """Successful transcription returns the text from _run_transcription."""
     with patch("transcription._run_transcription", return_value="Привет мир"):
@@ -98,6 +106,8 @@ async def test_transcribe_success():
 
 async def test_transcribe_corrupted_file_raises():
     """A corrupted file causes _run_transcription to raise; the exception propagates."""
-    with patch("transcription._run_transcription", side_effect=RuntimeError("decode error")):
-        with pytest.raises(RuntimeError, match="decode error"):
-            await transcription.transcribe(Path("corrupt.ogg"))
+    with (
+        patch("transcription._run_transcription", side_effect=RuntimeError("decode error")),
+        pytest.raises(RuntimeError, match="decode error"),
+    ):
+        await transcription.transcribe(Path("corrupt.ogg"))

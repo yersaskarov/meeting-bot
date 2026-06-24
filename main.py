@@ -16,7 +16,6 @@ def setup_logging() -> None:
     console.setLevel(logging.INFO)
     console.setFormatter(fmt)
 
-    # Только ошибки пишутся в файл, ротация по 5 MB, хранится 2 архива
     file_handler = RotatingFileHandler("errors.log", maxBytes=5 * 1024 * 1024, backupCount=2)
     file_handler.setLevel(logging.ERROR)
     file_handler.setFormatter(fmt)
@@ -29,9 +28,9 @@ def setup_logging() -> None:
 
 async def main() -> None:
     if not BOT_TOKEN:
-        raise ValueError("BOT_TOKEN не задан в .env файле")
+        raise ValueError("BOT_TOKEN is not set in .env")
 
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     await loop.run_in_executor(executor, load_model)
 
     dp = Dispatcher()
