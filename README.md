@@ -1,3 +1,5 @@
+🇷🇺 Russian version: [docs/README_RU.md](docs/README_RU.md)
+
 # Meeting Notes Bot
 
 [![CI](https://github.com/yersaskarov/meeting-bot/actions/workflows/ci.yml/badge.svg)](https://github.com/yersaskarov/meeting-bot/actions/workflows/ci.yml)
