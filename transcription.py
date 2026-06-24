@@ -15,14 +15,29 @@ def load_model() -> whisper.Whisper:
     global _model
     if _model is None:
         logger.info("Loading Whisper model...")
-        _model = whisper.load_model("base")
+        _model = whisper.load_model("small")
         logger.info("Whisper model loaded.")
     return _model
 
 
+def _detect_language(model: whisper.Whisper, file_path: Path) -> str:
+    audio = whisper.load_audio(str(file_path))
+    audio = whisper.pad_or_trim(audio)
+    mel = whisper.log_mel_spectrogram(audio, n_mels=model.dims.n_mels).to(model.device)
+    _, probs = model.detect_language(mel)
+    detected = max(probs, key=probs.get)
+    confidence = probs[detected]
+    if confidence >= 0.8:
+        logger.info("Language detected: %s (confidence: %.2f)", detected, confidence)
+        return detected
+    logger.info("Low confidence %.2f for '%s', defaulting to Russian", confidence, detected)
+    return "ru"
+
+
 def _run_transcription(file_path: Path) -> str:
     model = load_model()
-    result = model.transcribe(str(file_path), task="transcribe")
+    language = _detect_language(model, file_path)
+    result = model.transcribe(str(file_path), language=language, task="transcribe")
     return result["text"].strip()
 
 

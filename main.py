@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from logging.handlers import RotatingFileHandler
 
 from aiogram import Bot, Dispatcher
 
@@ -7,7 +8,23 @@ import handlers
 from config import BOT_TOKEN
 from transcription import executor, load_model
 
-logging.basicConfig(level=logging.INFO)
+
+def setup_logging() -> None:
+    fmt = logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
+
+    console = logging.StreamHandler()
+    console.setLevel(logging.INFO)
+    console.setFormatter(fmt)
+
+    # Только ошибки пишутся в файл, ротация по 5 MB, хранится 2 архива
+    file_handler = RotatingFileHandler("errors.log", maxBytes=5 * 1024 * 1024, backupCount=2)
+    file_handler.setLevel(logging.ERROR)
+    file_handler.setFormatter(fmt)
+
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+    root.addHandler(console)
+    root.addHandler(file_handler)
 
 
 async def main() -> None:
@@ -29,4 +46,5 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
+    setup_logging()
     asyncio.run(main())
