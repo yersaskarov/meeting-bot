@@ -6,7 +6,7 @@ from aiogram import Bot, Dispatcher
 
 import handlers
 from config import BOT_TOKEN
-from transcription import executor, load_model
+from transcription import check_ffmpeg, executor, load_model
 
 
 def setup_logging() -> None:
@@ -29,6 +29,8 @@ def setup_logging() -> None:
 async def main() -> None:
     if not BOT_TOKEN:
         raise ValueError("BOT_TOKEN is not set in .env")
+
+    check_ffmpeg()
 
     loop = asyncio.get_running_loop()
     await loop.run_in_executor(executor, load_model)

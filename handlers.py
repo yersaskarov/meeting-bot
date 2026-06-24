@@ -36,12 +36,15 @@ async def _safe_answer(message: Message, text: str, **kwargs) -> None:
     try:
         await message.answer(text, **kwargs)
     except TelegramForbiddenError:
+        assert message.from_user is not None
         logger.warning("User %s has blocked the bot — skipping reply", message.from_user.id)
 
 
 async def _download(bot: Bot, file_id: str, dest: Path) -> None:
     file = await bot.get_file(file_id)
+    assert file.file_path is not None
     data = await bot.download_file(file.file_path)
+    assert data is not None
     async with aiofiles.open(dest, "wb") as f:
         await f.write(data.read())
 
@@ -72,9 +75,16 @@ async def _process(
         )
         return
 
+    assert message.from_user is not None
     logger.info("Saved %s from user %s", file_name, message.from_user.id)
 
     await _safe_answer(message, "⏳ Транскрибирую аудио... это может занять до 2 минут")
+    logger.info(
+        "Calling transcribe: path=%s exists=%s size=%s",
+        file_path,
+        file_path.exists(),
+        file_path.stat().st_size if file_path.exists() else "N/A",
+    )
     try:
         transcript = await asyncio.wait_for(transcribe(file_path), timeout=TRANSCRIPTION_TIMEOUT)
     except TimeoutError:
@@ -85,8 +95,8 @@ async def _process(
             "Попробуй файл покороче или с более чёткой речью.",
         )
         return
-    except Exception as e:
-        logger.error("Whisper error for %s: %s", file_name, e)
+    except Exception:
+        logger.exception("Whisper error for %s", file_name)
         await _safe_answer(
             message,
             "❌ Не удалось транскрибировать аудио.\n"
@@ -186,6 +196,7 @@ async def cmd_help(message: Message) -> None:
 
 
 async def handle_voice(message: Message, bot: Bot) -> None:
+    assert message.voice is not None and message.from_user is not None
     voice = message.voice
     if voice.file_size and voice.file_size > MAX_FILE_SIZE:
         size_mb = voice.file_size // 1024 // 1024
@@ -196,6 +207,7 @@ async def handle_voice(message: Message, bot: Bot) -> None:
 
 
 async def handle_audio(message: Message, bot: Bot) -> None:
+    assert message.audio is not None and message.from_user is not None
     audio = message.audio
     if audio.file_size and audio.file_size > MAX_FILE_SIZE:
         size_mb = audio.file_size // 1024 // 1024

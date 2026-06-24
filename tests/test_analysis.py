@@ -3,6 +3,7 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import anthropic
+import anthropic.types
 import pytest
 
 import analysis
@@ -24,7 +25,8 @@ def reset_client():
 def _mock_anthropic_client(text: str = "📋 Саммари: тест"):
     """Return a patched AsyncAnthropic that yields `text`."""
     mock_response = MagicMock()
-    mock_response.content = [MagicMock(text=text)]
+    # spec=TextBlock makes isinstance(block, TextBlock) return True in analyze()
+    mock_response.content = [MagicMock(spec=anthropic.types.TextBlock, text=text)]
 
     mock_client = AsyncMock()
     mock_client.messages.create = AsyncMock(return_value=mock_response)
@@ -55,7 +57,7 @@ async def test_analyze_sends_correct_prompt():
     async def fake_create(**kwargs):
         captured_messages.extend(kwargs.get("messages", []))
         resp = MagicMock()
-        resp.content = [MagicMock(text="ok")]
+        resp.content = [MagicMock(spec=anthropic.types.TextBlock, text="ok")]
         return resp
 
     mock_client = AsyncMock()
@@ -74,7 +76,7 @@ async def test_analyze_uses_system_prompt():
     async def fake_create(**kwargs):
         captured_kwargs.append(kwargs)
         resp = MagicMock()
-        resp.content = [MagicMock(text="ok")]
+        resp.content = [MagicMock(spec=anthropic.types.TextBlock, text="ok")]
         return resp
 
     mock_client = AsyncMock()

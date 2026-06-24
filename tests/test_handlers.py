@@ -181,6 +181,57 @@ async def test_handle_audio_accepts_allowed_extension():
 
 
 # ---------------------------------------------------------------------------
+# Voice message filename always uses .ogg
+# ---------------------------------------------------------------------------
+
+
+async def test_handle_voice_filename_is_ogg():
+    """Voice messages must be saved as .ogg regardless of what Telegram reports."""
+    msg = _make_message()
+    msg.voice = MagicMock(
+        file_size=1 * 1024 * 1024,
+        file_unique_id="uid_voice",
+        file_id="fid_voice",
+        duration=10,
+    )
+    bot = _make_bot()
+
+    with patch("handlers._process", new_callable=AsyncMock) as mock_process:
+        await handlers.handle_voice(msg, bot)
+
+    file_name_used = mock_process.call_args.args[3]
+    assert file_name_used.endswith(".ogg"), f"Expected .ogg, got: {file_name_used}"
+
+
+# ---------------------------------------------------------------------------
+# Transcription error is logged with full traceback (logger.exception)
+# ---------------------------------------------------------------------------
+
+
+async def test_process_transcription_error_logged_with_exception(caplog):
+    """Whisper errors must be logged via logger.exception so traceback is visible."""
+    import logging
+
+    msg = _make_message()
+    bot = _make_bot()
+    error = RuntimeError("ffmpeg not found in PATH")
+
+    with (
+        patch("handlers._download", new_callable=AsyncMock),
+        patch("handlers.transcribe", side_effect=error),
+        caplog.at_level(logging.ERROR, logger="handlers"),
+    ):
+        await handlers._process(msg, bot, "fid", "voice_42_uid.ogg", duration=10)
+
+    # The full traceback must appear in log records (exc_info was set)
+    assert any(r.exc_info is not None for r in caplog.records), (
+        "Whisper error must be logged with exc_info=True (logger.exception, not logger.error)"
+    )
+    texts = [call.args[0] for call in msg.answer.call_args_list if call.args]
+    assert any("❌" in t for t in texts)
+
+
+# ---------------------------------------------------------------------------
 # Unsupported content types
 # ---------------------------------------------------------------------------
 

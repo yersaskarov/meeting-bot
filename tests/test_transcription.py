@@ -111,3 +111,23 @@ async def test_transcribe_corrupted_file_raises():
         pytest.raises(RuntimeError, match="decode error"),
     ):
         await transcription.transcribe(Path("corrupt.ogg"))
+
+
+# ---------------------------------------------------------------------------
+# check_ffmpeg
+# ---------------------------------------------------------------------------
+
+
+def test_check_ffmpeg_raises_when_not_found():
+    """check_ffmpeg must raise RuntimeError with install instructions when ffmpeg is absent."""
+    with (
+        patch("transcription.shutil.which", return_value=None),
+        pytest.raises(RuntimeError, match="ffmpeg not found"),
+    ):
+        transcription.check_ffmpeg()
+
+
+def test_check_ffmpeg_passes_when_found():
+    """check_ffmpeg must not raise when ffmpeg is present in PATH."""
+    with patch("transcription.shutil.which", return_value="/usr/bin/ffmpeg"):
+        transcription.check_ffmpeg()  # must not raise

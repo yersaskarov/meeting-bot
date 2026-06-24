@@ -39,4 +39,7 @@ async def analyze(transcript: str) -> str:
         system=_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": _USER_PROMPT_TEMPLATE.format(transcript=transcript)}],
     )
-    return response.content[0].text
+    block = response.content[0]
+    if not isinstance(block, anthropic.types.TextBlock):
+        raise RuntimeError(f"Unexpected response block type from Claude: {type(block)}")
+    return block.text
