@@ -12,10 +12,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Pre-download the Whisper model so the container is ready without network access at runtime.
-# Override WHISPER_MODEL at build time: docker build --build-arg WHISPER_MODEL=base .
+# Pre-download the Whisper model into a fixed path accessible to all users.
+# Without WHISPER_CACHE, the model would be stored in /root/.cache at build time
+# but looked up in /home/botuser/.cache at runtime (different user), causing a
+# re-download on every container start.
 ARG WHISPER_MODEL=small
-RUN python -c "import whisper; whisper.load_model('${WHISPER_MODEL}')"
+ENV WHISPER_CACHE=/app/.cache/whisper
+RUN mkdir -p /app/.cache/whisper && \
+    python -c "import whisper; whisper.load_model('${WHISPER_MODEL}', download_root='/app/.cache/whisper')"
 
 # Run as non-root to limit blast radius of any RCE vulnerability.
 RUN useradd -m -u 1001 botuser \

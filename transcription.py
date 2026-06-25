@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import shutil
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -7,6 +8,8 @@ from pathlib import Path
 import whisper
 
 from config import WHISPER_MODEL
+
+WHISPER_CACHE: str | None = os.getenv("WHISPER_CACHE")
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +36,7 @@ def load_model() -> whisper.Whisper:
     global _model
     if _model is None:
         logger.info("Loading Whisper model '%s'...", WHISPER_MODEL)
-        _model = whisper.load_model(WHISPER_MODEL)
+        _model = whisper.load_model(WHISPER_MODEL, download_root=WHISPER_CACHE)
         logger.info("Whisper model loaded.")
     return _model
 

@@ -1,0 +1,46 @@
+# Secrets — must never be baked into the image layer
+.env
+
+# Development tooling — not needed at runtime
+.venv/
+venv/
+env/
+requirements-dev.txt
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+__pycache__/
+*.pyc
+*.pyo
+
+# Test suite — not needed at runtime
+tests/
+
+# Data and logs — mounted as volumes at runtime
+data/
+logs/
+audio/
+audio_files/
+*.mp3
+*.ogg
+*.wav
+*.m4a
+*.mp4
+*.flac
+*.opus
+
+# Version control and CI
+.git/
+.github/
+.claude/
+
+# Docs
+docs/
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Editor configs
+*.swp
+*.swo

@@ -22,15 +22,16 @@ def reset_model():
 
 
 def test_load_model_uses_configured_model():
-    """load_model must pass WHISPER_MODEL to whisper.load_model."""
+    """load_model must pass WHISPER_MODEL and WHISPER_CACHE to whisper.load_model."""
     mock_model = MagicMock()
     with (
         patch("transcription.whisper.load_model", return_value=mock_model) as mock_load,
         patch("transcription.WHISPER_MODEL", "small"),
+        patch("transcription.WHISPER_CACHE", "/app/.cache/whisper"),
     ):
         result = transcription.load_model()
 
-    mock_load.assert_called_once_with("small")
+    mock_load.assert_called_once_with("small", download_root="/app/.cache/whisper")
     assert result is mock_model
 
 
