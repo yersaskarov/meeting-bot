@@ -5,7 +5,18 @@ services:
     volumes:
       - ./audio:/app/audio
       - ./logs:/app/logs
+      - ./data:/app/data
     restart: unless-stopped
     environment:
       - WHISPER_MODEL=${WHISPER_MODEL:-small}
       - CLAUDE_MODEL=${CLAUDE_MODEL:-claude-sonnet-4-6}
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import sqlite3,os; sqlite3.connect(os.getenv('DB_PATH','data/meetings.db')).execute('SELECT 1 FROM meetings LIMIT 1')"
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 120s

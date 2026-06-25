@@ -19,7 +19,7 @@ RUN python -c "import whisper; whisper.load_model('${WHISPER_MODEL}')"
 
 # Run as non-root to limit blast radius of any RCE vulnerability.
 RUN useradd -m -u 1001 botuser \
-    && mkdir -p /app/audio /app/logs \
+    && mkdir -p /app/audio /app/logs /app/data \
     && chown -R botuser:botuser /app
 USER botuser
 

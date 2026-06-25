@@ -13,7 +13,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-DB_PATH = Path(os.getenv("DB_PATH", "meetings.db"))
+DB_PATH = Path(os.getenv("DB_PATH", "data/meetings.db"))
 
 
 @dataclass(frozen=True)
@@ -30,6 +30,7 @@ class Meeting:
 
 def init_db(db_path: Path = DB_PATH) -> None:
     """Create tables and indexes. Safe to call on every startup."""
+    db_path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(db_path) as conn:
         conn.execute(
             """

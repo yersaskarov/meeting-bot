@@ -31,6 +31,10 @@ env/
 .cache/whisper/
 ~/.cache/whisper/
 
+# SQLite database — contains PII (meeting transcripts)
+data/
+meetings.db
+
 # Logs
 errors.log
 errors.log.*

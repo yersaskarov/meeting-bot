@@ -34,7 +34,7 @@ jobs:
         run: ruff format --check .
 
       - name: Type check (mypy)
-        run: mypy config.py analysis.py transcription.py handlers.py main.py
+        run: mypy .
 
       - name: Run tests
         run: pytest --tb=short -q

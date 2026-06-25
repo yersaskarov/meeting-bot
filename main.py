@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
 from aiogram import Bot, Dispatcher
 
@@ -17,7 +18,8 @@ def setup_logging() -> None:
     console.setLevel(logging.INFO)
     console.setFormatter(fmt)
 
-    file_handler = RotatingFileHandler("errors.log", maxBytes=5 * 1024 * 1024, backupCount=2)
+    Path("logs").mkdir(exist_ok=True)
+    file_handler = RotatingFileHandler("logs/errors.log", maxBytes=5 * 1024 * 1024, backupCount=2)
     file_handler.setLevel(logging.ERROR)
     file_handler.setFormatter(fmt)
 
