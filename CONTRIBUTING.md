@@ -40,7 +40,7 @@ This project uses [ruff](https://docs.astral.sh/ruff/) for linting and formattin
 ```bash
 ruff check .          # lint
 ruff format .         # format
-mypy config.py analysis.py transcription.py handlers.py main.py  # types
+mypy .                # types
 ```
 
 CI enforces all three. Your PR will not merge if any of them fail.

@@ -22,6 +22,7 @@ A Telegram bot that turns meeting audio into structured notes. It transcribes sp
   - Brief summary (3–5 sentences)
   - Action items with owners
   - Deadlines and agreements
+- Stores meeting history in SQLite and lets users reopen recent notes with `/history`
 - File guards: 25 MB size limit, 30-minute duration limit, 5-minute transcription timeout
 - Graceful error handling for every Claude API failure mode (rate limits, auth errors, overload)
 
@@ -51,6 +52,11 @@ Telegram User
 │ (Claude API)  │  system prompt + user transcript
 └──────┬────────┘
        │ structured notes
+       ▼
+┌────────────┐
+│ storage.py │  SQLite persistence for /history
+└────────────┘
+       │
        ▼
 Telegram User
 ```
@@ -118,6 +124,7 @@ All configuration is via environment variables (`.env` file or system environmen
 | `ANTHROPIC_API_KEY` | Yes | — | Claude API key from [console.anthropic.com](https://console.anthropic.com) |
 | `WHISPER_MODEL` | No | `small` | Whisper model size: `tiny`, `base`, `small`, `medium`, `large` |
 | `CLAUDE_MODEL` | No | `claude-sonnet-4-6` | Claude model ID |
+| `DB_PATH` | No | `data/meetings.db` | SQLite database path for meeting history |
 
 ### Getting credentials
 
@@ -141,6 +148,8 @@ meeting-bot/
 ├── handlers.py          # Telegram message handlers, validation, orchestration
 ├── transcription.py     # Whisper transcription (thread pool)
 ├── analysis.py          # Claude API call (singleton client)
+├── formatter.py         # Parses Claude JSON and formats Telegram messages
+├── storage.py           # SQLite persistence for meeting history
 ├── config.py            # Environment variable loading
 ├── requirements.txt     # Runtime dependencies
 ├── requirements-dev.txt # Dev/test dependencies
@@ -149,7 +158,9 @@ meeting-bot/
 ├── pyproject.toml       # ruff, mypy, pytest config
 └── tests/
     ├── test_analysis.py
+    ├── test_formatter.py
     ├── test_handlers.py
+    ├── test_storage.py
     ├── test_transcription.py
     └── test_pipeline.py  # End-to-end pipeline integration tests
 ```
@@ -168,7 +179,7 @@ All tests mock external services. No real API keys or audio files needed.
 ```bash
 ruff check .          # lint
 ruff format --check . # format check
-mypy config.py analysis.py transcription.py handlers.py main.py
+mypy .                # type check
 ```
 
 ---

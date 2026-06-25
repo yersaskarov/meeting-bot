@@ -117,10 +117,10 @@ async def _process(
     if truncated:
         transcript = transcript[:MAX_TRANSCRIPT_CHARS]
 
-    transcript_msg = f"📝 *Транскрипт:*\n\n{transcript}"
+    transcript_msg = f"📝 Транскрипт:\n\n{transcript}"
     if truncated:
-        transcript_msg += "\n\n_⚠️ Текст обрезан — аудио слишком длинное_"
-    await _safe_answer(message, transcript_msg, parse_mode="Markdown")
+        transcript_msg += "\n\n⚠️ Текст обрезан — аудио слишком длинное"
+    await _safe_answer(message, transcript_msg)
 
     if not ANTHROPIC_API_KEY or ANTHROPIC_API_KEY == "your_anthropic_api_key_here":
         await _safe_answer(message, "⚠️ ANTHROPIC_API_KEY не настроен — анализ недоступен.")
@@ -286,12 +286,14 @@ async def cmd_history(message: Message) -> None:
         date_str = meeting.created_at.strftime("%d.%m.%Y")
         title = _meeting_title(meeting.summary)
         lines.append(f"{i}. {date_str} — {title}")
-        buttons.append([
-            InlineKeyboardButton(
-                text=f"{i}. {date_str} — {title}",
-                callback_data=f"meeting:{meeting.id}",
-            )
-        ])
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=f"{i}. {date_str} — {title}",
+                    callback_data=f"meeting:{meeting.id}",
+                )
+            ]
+        )
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     text = "\n".join(lines) + "\n\n👇 Нажми для просмотра деталей:"
@@ -311,7 +313,9 @@ async def callback_meeting_detail(callback: CallbackQuery) -> None:
     try:
         meeting = storage.get_meeting(meeting_id, callback.from_user.id)
     except Exception:
-        logger.exception("Failed to fetch meeting %s for user %s", meeting_id, callback.from_user.id)
+        logger.exception(
+            "Failed to fetch meeting %s for user %s", meeting_id, callback.from_user.id
+        )
         await callback.answer("❌ Ошибка при загрузке встречи", show_alert=True)
         return
 

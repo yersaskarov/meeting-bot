@@ -22,6 +22,7 @@ Telegram-бот, который превращает запись встречи
   - Краткое саммари (3–5 предложений)
   - Список задач с ответственными
   - Дедлайны и договорённости
+- Сохраняет историю встреч в SQLite и позволяет открыть последние заметки через `/history`
 - Ограничения: 25 МБ на файл, 30 минут длительности, 5 минут на транскрипцию
 - Грамотная обработка всех сбоев Claude API: лимиты, ошибки авторизации, перегрузка
 
@@ -51,6 +52,11 @@ Telegram-бот, который превращает запись встречи
 │ (Claude API)  │  system prompt + транскрипт пользователя
 └──────┬────────┘
        │ структурированные заметки
+       ▼
+┌────────────┐
+│ storage.py │  SQLite-хранилище для /history
+└────────────┘
+       │
        ▼
 Пользователь Telegram
 ```
@@ -118,6 +124,7 @@ python main.py
 | `ANTHROPIC_API_KEY` | Да | — | Ключ Claude API из [console.anthropic.com](https://console.anthropic.com) |
 | `WHISPER_MODEL` | Нет | `small` | Размер модели Whisper: `tiny`, `base`, `small`, `medium`, `large` |
 | `CLAUDE_MODEL` | Нет | `claude-sonnet-4-6` | Идентификатор модели Claude |
+| `DB_PATH` | Нет | `data/meetings.db` | Путь к SQLite-базе истории встреч |
 
 ### Где получить токены
 
@@ -141,6 +148,8 @@ meeting-bot/
 ├── handlers.py          # Обработчики сообщений, валидация, оркестрация
 ├── transcription.py     # Транскрипция через Whisper (thread pool)
 ├── analysis.py          # Вызов Claude API (singleton-клиент)
+├── formatter.py         # Парсинг JSON от Claude и форматирование сообщений
+├── storage.py           # SQLite-хранилище истории встреч
 ├── config.py            # Загрузка переменных окружения
 ├── requirements.txt     # Runtime-зависимости
 ├── requirements-dev.txt # Зависимости для разработки и тестов
@@ -149,7 +158,9 @@ meeting-bot/
 ├── pyproject.toml       # Конфигурация ruff, mypy, pytest
 └── tests/
     ├── test_analysis.py
+    ├── test_formatter.py
     ├── test_handlers.py
+    ├── test_storage.py
     ├── test_transcription.py
     └── test_pipeline.py  # Интеграционные тесты всего пайплайна
 ```
@@ -168,7 +179,7 @@ pytest
 ```bash
 ruff check .          # линтинг
 ruff format --check . # проверка форматирования
-mypy config.py analysis.py transcription.py handlers.py main.py
+mypy .                # проверка типов
 ```
 
 ---

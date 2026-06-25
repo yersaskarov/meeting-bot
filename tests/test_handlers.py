@@ -231,6 +231,26 @@ async def test_process_transcription_error_logged_with_exception(caplog):
     assert any("❌" in t for t in texts)
 
 
+async def test_process_sends_transcript_without_markdown_parse_mode():
+    """Raw transcripts can contain Markdown control chars and must be sent as plain text."""
+    msg = _make_message()
+    bot = _make_bot()
+    transcript = "Discussed *billing* and [links](broken)"
+
+    with (
+        patch("handlers._download", new_callable=AsyncMock),
+        patch("handlers.transcribe", new=AsyncMock(return_value=transcript)),
+        patch("handlers.ANTHROPIC_API_KEY", None),
+    ):
+        await handlers._process(msg, bot, "fid", "voice_42_uid.ogg", duration=10)
+
+    transcript_calls = [
+        call for call in msg.answer.call_args_list if call.args and transcript in call.args[0]
+    ]
+    assert transcript_calls
+    assert "parse_mode" not in transcript_calls[0].kwargs
+
+
 # ---------------------------------------------------------------------------
 # Unsupported content types
 # ---------------------------------------------------------------------------
