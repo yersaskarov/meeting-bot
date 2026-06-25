@@ -48,6 +48,7 @@ async def test_full_pipeline_audio_to_analysis():
             "handlers.analyze", new_callable=AsyncMock, return_value="📋 Саммари: дедлайны"
         ) as mock_an,
         patch("handlers.ANTHROPIC_API_KEY", "sk-ant-test"),
+        patch("handlers.storage.save_meeting"),
     ):
         await handlers._process(msg, bot, "fid", "voice_99_uid.ogg", duration=120)
 

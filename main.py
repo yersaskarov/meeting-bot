@@ -5,6 +5,7 @@ from logging.handlers import RotatingFileHandler
 from aiogram import Bot, Dispatcher
 
 import handlers
+import storage
 from config import BOT_TOKEN
 from transcription import check_ffmpeg, executor, load_model
 
@@ -30,6 +31,7 @@ async def main() -> None:
     if not BOT_TOKEN:
         raise ValueError("BOT_TOKEN is not set in .env")
 
+    storage.init_db()
     check_ffmpeg()
 
     loop = asyncio.get_running_loop()

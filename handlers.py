@@ -9,10 +9,12 @@ import anthropic
 from aiogram import Bot, Dispatcher, F
 from aiogram.exceptions import TelegramForbiddenError
 from aiogram.filters import Command, CommandStart
-from aiogram.types import Message
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
+import storage
 from analysis import analyze
 from config import ANTHROPIC_API_KEY
+from formatter import format_parsed, parse_analysis
 from transcription import transcribe
 
 logger = logging.getLogger(__name__)
@@ -155,7 +157,20 @@ async def _process(
         await _safe_answer(message, "❌ Неожиданная ошибка при анализе. Попробуй позже.")
         return
 
-    await _safe_answer(message, result)
+    data = parse_analysis(result)
+    try:
+        storage.save_meeting(
+            user_id=message.from_user.id,
+            transcript=transcript,
+            summary=data.get("summary", ""),
+            tasks=data.get("tasks") or [],
+            deadlines=data.get("deadlines") or [],
+            notes=data.get("notes") or "",
+        )
+    except Exception:
+        logger.warning("Failed to save meeting to history")
+
+    await _safe_answer(message, format_parsed(data) or result.strip())
 
 
 async def cmd_start(message: Message) -> None:
@@ -235,12 +250,98 @@ async def handle_unsupported(message: Message) -> None:
     )
 
 
+def _meeting_title(summary: str, max_chars: int = 45) -> str:
+    """Extract a short display title from a meeting summary."""
+    for sep in (".", "!", "?", "\n"):
+        idx = summary.find(sep)
+        if 0 < idx <= max_chars:
+            return summary[: idx + 1].strip()
+    if len(summary) <= max_chars:
+        return summary
+    return summary[:max_chars].rstrip() + "…"
+
+
+async def cmd_history(message: Message) -> None:
+    assert message.from_user is not None
+    user_id = message.from_user.id
+
+    try:
+        meetings = storage.get_recent_meetings(user_id)
+    except Exception:
+        logger.exception("Failed to fetch meeting history for user %s", user_id)
+        await _safe_answer(message, "❌ Не удалось загрузить историю встреч.")
+        return
+
+    if not meetings:
+        await _safe_answer(
+            message,
+            "📚 История встреч пуста.\n\n"
+            "Отправь голосовое сообщение или аудиофайл — и я запишу первую встречу.",
+        )
+        return
+
+    lines = ["📚 Последние встречи\n"]
+    buttons: list[list[InlineKeyboardButton]] = []
+    for i, meeting in enumerate(meetings, 1):
+        date_str = meeting.created_at.strftime("%d.%m.%Y")
+        title = _meeting_title(meeting.summary)
+        lines.append(f"{i}. {date_str} — {title}")
+        buttons.append([
+            InlineKeyboardButton(
+                text=f"{i}. {date_str} — {title}",
+                callback_data=f"meeting:{meeting.id}",
+            )
+        ])
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+    text = "\n".join(lines) + "\n\n👇 Нажми для просмотра деталей:"
+    await _safe_answer(message, text, reply_markup=keyboard)
+
+
+async def callback_meeting_detail(callback: CallbackQuery) -> None:
+    assert callback.from_user is not None
+    assert callback.data is not None
+
+    try:
+        meeting_id = int(callback.data.removeprefix("meeting:"))
+    except ValueError:
+        await callback.answer("Неверный запрос", show_alert=True)
+        return
+
+    try:
+        meeting = storage.get_meeting(meeting_id, callback.from_user.id)
+    except Exception:
+        logger.exception("Failed to fetch meeting %s for user %s", meeting_id, callback.from_user.id)
+        await callback.answer("❌ Ошибка при загрузке встречи", show_alert=True)
+        return
+
+    if meeting is None:
+        await callback.answer("Встреча не найдена", show_alert=True)
+        return
+
+    await callback.answer()
+
+    if not isinstance(callback.message, Message):
+        return
+
+    data = {
+        "summary": meeting.summary,
+        "tasks": meeting.tasks,
+        "deadlines": meeting.deadlines,
+        "notes": meeting.notes,
+    }
+    formatted = format_parsed(data) or meeting.summary or "Детали встречи недоступны"
+    await callback.message.answer(formatted)
+
+
 def register(dp: Dispatcher) -> None:
     dp.message.register(cmd_start, CommandStart())
     dp.message.register(cmd_help, Command("help"))
+    dp.message.register(cmd_history, Command("history"))
     dp.message.register(handle_voice, F.voice)
     dp.message.register(handle_audio, F.audio)
     dp.message.register(
         handle_unsupported,
         F.video | F.photo | F.document | F.sticker | F.animation | F.video_note,
     )
+    dp.callback_query.register(callback_meeting_detail, F.data.startswith("meeting:"))

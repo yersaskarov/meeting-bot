@@ -10,16 +10,24 @@ logger = logging.getLogger(__name__)
 _SYSTEM_PROMPT = (
     "You are a meeting analysis assistant. "
     "Extract structured information from meeting transcripts. "
+    "Return ONLY a valid JSON object — no markdown, no prose, no code blocks. "
     "Always respond in the same language as the transcript."
 )
 
-_USER_PROMPT_TEMPLATE = (
-    "From the meeting transcript below, extract:\n"
-    "1. 📋 Brief summary (3–5 sentences)\n"
-    "2. ✅ Action items with owners (if mentioned)\n"
-    "3. 📅 Deadlines and agreements\n\n"
-    "Transcript:\n{transcript}"
-)
+_USER_PROMPT_TEMPLATE = """\
+From the meeting transcript below, extract and return a JSON object with these exact fields:
+{{
+  "summary": "concise meeting summary in 3-5 sentences",
+  "tasks": [{{"owner": "person name or empty string if unknown", "task": "what needs to be done"}}],
+  "deadlines": [{{"task": "task description", "date": "deadline date or time"}}],
+  "notes": "additional context, recommendations, or observations (empty string if none)"
+}}
+
+Return ONLY the JSON. No text before or after. No markdown fences.
+
+Transcript:
+{transcript}
+"""
 
 # Reuse a single client across all requests — it manages its own connection pool.
 _client: anthropic.AsyncAnthropic | None = None
